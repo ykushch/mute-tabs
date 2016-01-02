@@ -16,26 +16,30 @@
         });
     }
 
-    function muteUnmuteTabs(tabs, options) {
-        if (options.toggleMute) {
-            tabs.forEach(tab => {
-                options.mutedTabs.push(tab);
-                toggleMuteTab(tab, options.toggleMute);
-                chrome.browserAction.setTitle({
-                    title: 'Unmute'
-                });
-            });
-            options.toggleMute = false;
-        } else {
-            options.mutedTabs.forEach(tab => {
-                toggleMuteTab(tab, options.toggleMute);
-            });
-            options.mutedTabs.length = 0;
-            options.toggleMute = true;
+    function muteTabs(tabs, options) {
+        tabs.forEach(tab => {
+            options.mutedTabs.push(tab);
+            toggleMuteTab(tab, options.isMuted);
             chrome.browserAction.setTitle({
-                title: 'Mute'
+                title: 'Unmute'
             });
-        }
+        });
+        options.isMuted = false;
+    }
+
+    function unMuteTabs(tabs, options) {
+        options.mutedTabs.forEach(tab => {
+            toggleMuteTab(tab, options.isMuted);
+        });
+        options.mutedTabs.length = 0;
+        options.isMuted = true;
+        chrome.browserAction.setTitle({
+            title: 'Mute'
+        });
+    }
+
+    function muteUnmuteTabs(tabs, options) {
+        options.isMuted ? muteTabs(tabs, options) : unMuteTabs(tabs, options);
     }
 
     function saveToStorage(objectToSave) {
@@ -52,23 +56,28 @@
             }
             var defaultOptions = {
                 mutedTabs: [],
-                toggleMute: false
+                isMuted: false
             };
             var options = Object.assign({}, defaultOptions, data.options);
             callback(options);
         });
     }
 
-    function toggleMuteTab(tab, toggleMute) {
-        chrome.tabs.update(tab.id, {
-            muted: toggleMute
+    function toggleMuteTab(tab, isMuted) {
+        chrome.tabs.get(tab.id, foundTab => {
+            if (chrome.runtime.lastError) {
+                return;
+            }
+            chrome.tabs.update(foundTab.id, {
+                muted: isMuted
+            });
         });
     }
 
     chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
         if (message.popupOpen) {
             var options = message.options;
-            var imagePrefix = options.toggleMute ? 'mute' : 'sound';
+            var imagePrefix = options.isMuted ? 'mute' : 'sound';
             chrome.browserAction.setIcon({
                 path: {
                     '19': 'images/' + imagePrefix + '-19.png',
@@ -80,11 +89,12 @@
 
     function onUpdate(tabId, changeInfo, tab) {
         getFromStorage(function(options) {
-            if (options.toggleMute) {
+            if (options.isMuted) {
                 return;
             }
             if (!options.mutedTabs.indexOf(tab) > -1) {
                 options.mutedTabs.push(tab);
+                saveToStorage(options);
             }
             toggleMuteTab(tab, true);
         });
