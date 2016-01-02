@@ -1,4 +1,8 @@
 (function() {
+    'use strict';
+    
+    const OPTIONS_KEY = 'options';
+
     var queryTabsWithSounds = {
         audible: true
     };
@@ -43,13 +47,13 @@
     }
 
     function saveToStorage(objectToSave) {
-        chrome.storage.sync.set({
-            'options': objectToSave
-        });
+        var preparedObject = {};
+        preparedObject[OPTIONS_KEY] = objectToSave;
+        chrome.storage.sync.set(preparedObject);
     }
 
     function getFromStorage(callback) {
-        chrome.storage.sync.get('options', function(data) {
+        chrome.storage.sync.get(OPTIONS_KEY, function(data) {
             if (chrome.runtime.lastError) {
                 console.log('Chrome caused error during sync.get');
                 return;
