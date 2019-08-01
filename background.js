@@ -8,15 +8,30 @@
     };
 
     function initialize(callback) {
+        getFromStorage(function(options) {
+            enforceSettings(options);
+            saveToStorage(options);
+        });
+    }
+
+    function onClick() {
+        getFromStorage(function(options) {
+            options.isMuted = !options.isMuted;
+            enforceSettings(options);
+            saveToStorage(options);
+        });
+    }
+
+    function enforceSettings(options) {
         chrome.tabs.query(queryTabsWithSounds, tabs => {
-            getFromStorage(function(options) {
-                chrome.runtime.sendMessage({
-                    popupOpen: true,
-                    options: options
+                var imagePrefix = options.isMuted ? 'mute' : 'sound';
+                chrome.browserAction.setIcon({
+                    path: {
+                        '19': 'images/' + imagePrefix + '-19.png',
+                        '38': 'images/' + imagePrefix + '-38.png'
+                    }
                 });
-                muteUnmuteTabs(tabs, options);
-                saveToStorage(options);
-            });
+                options.isMuted ? muteTabs(tabs, options) : unMuteTabs(tabs, options);
         });
     }
 
@@ -24,11 +39,10 @@
         tabs.forEach(tab => {
             options.mutedTabs.push(tab);
             toggleMuteTab(tab, options.isMuted);
-            chrome.browserAction.setTitle({
-                title: 'Unmute'
-            });
         });
-        options.isMuted = false;
+        chrome.browserAction.setTitle({
+            title: 'Unmute'
+        });
     }
 
     function unMuteTabs(tabs, options) {
@@ -36,14 +50,9 @@
             toggleMuteTab(tab, options.isMuted);
         });
         options.mutedTabs.length = 0;
-        options.isMuted = true;
         chrome.browserAction.setTitle({
             title: 'Mute'
         });
-    }
-
-    function muteUnmuteTabs(tabs, options) {
-        options.isMuted ? muteTabs(tabs, options) : unMuteTabs(tabs, options);
     }
 
     function saveToStorage(objectToSave) {
@@ -78,22 +87,9 @@
         });
     }
 
-    chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-        if (message.popupOpen) {
-            var options = message.options;
-            var imagePrefix = options.isMuted ? 'mute' : 'sound';
-            chrome.browserAction.setIcon({
-                path: {
-                    '19': 'images/' + imagePrefix + '-19.png',
-                    '38': 'images/' + imagePrefix + '-38.png'
-                }
-            });
-        }
-    });
-
     function onUpdate(tabId, changeInfo, tab) {
         getFromStorage(function(options) {
-            if (options.isMuted) {
+            if (!options.isMuted) {
                 return;
             }
             if (!options.mutedTabs.indexOf(tab) > -1) {
@@ -104,7 +100,7 @@
         });
     }
 
-    chrome.browserAction.onClicked.addListener(initialize);
+    chrome.browserAction.onClicked.addListener(onClick);
     chrome.tabs.onUpdated.addListener(onUpdate);
     initialize();
 })();
